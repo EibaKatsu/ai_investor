@@ -27,21 +27,26 @@ cp .env.example .env
 
 ```bash
 JQUANTS_API_KEY=your-api-key
-GNEWS_API_KEY=your-gnews-api-key
+OPENAI_API_KEY=your-openai-api-key
 # Optional:
 # JQUANTS_MAX_STATEMENT_CODES=300
 # JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
+# WEB_NEWS_MAX_ITEMS=20
 ```
 
 実行時に `src/ai_investor/main.py` が `.env` を自動読込します。
+
+ニュース収集はAPIキー不要のWeb検索方式（Google News RSS）です。
+必要に応じて `WEB_NEWS_MAX_ITEMS` で1銘柄あたりの取得上限件数を調整できます。
 
 環境変数で直接設定する場合:
 
 ```bash
 export JQUANTS_API_KEY="your-api-key"
-export GNEWS_API_KEY="your-gnews-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
 export JQUANTS_MAX_STATEMENT_CODES=300
 export JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
+export WEB_NEWS_MAX_ITEMS=20
 ```
 
 ## SBI CSV Mode

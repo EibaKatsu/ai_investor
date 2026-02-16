@@ -18,11 +18,10 @@ data_sources:
     constraints:
       listing_window_days: 31
   news_enrichment:
-    provider: "gnews"
-    plan: "free"
+    provider: "web_search_rss"
+    plan: "public"
     constraints:
-      non_commercial_only: true
-      delay_hours: 12
+      max_items: 20
 
 universe:
   market: "TSE_PRIME"

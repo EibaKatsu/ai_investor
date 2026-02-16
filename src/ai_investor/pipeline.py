@@ -4,7 +4,7 @@ from datetime import date
 
 from ai_investor.collectors.fundamentals import EdinetCollector
 from ai_investor.collectors.market_data import JQuantsMarketDataCollector
-from ai_investor.collectors.news import GNewsCollector, TdnetPublicCollector
+from ai_investor.collectors.news import TdnetPublicCollector, WebSearchNewsCollector
 from ai_investor.collectors.sbi_csv import SbiCsvMarketDataCollector
 from ai_investor.config import StrategyConfig
 from ai_investor.models import Candidate, PipelineResult
@@ -28,7 +28,7 @@ class InvestorPipeline:
             )
         self.edinet = EdinetCollector()
         self.tdnet = TdnetPublicCollector()
-        self.gnews = GNewsCollector()
+        self.web_news = WebSearchNewsCollector()
 
     def run(
         self,
@@ -68,7 +68,7 @@ class InvestorPipeline:
         recommendations = build_recommendations(
             shortlisted,
             selected_top_k,
-            gnews=self.gnews,
+            web_news=self.web_news,
             tdnet=self.tdnet,
             news_lookback_days=self.config.deep_dive.news_lookback_days,
             as_of=as_of,
