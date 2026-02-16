@@ -6,7 +6,9 @@ data_sources:
   prices_and_fundamentals:
     provider: "jquants"
     plan: "free"
+    auth_method: "api_key"
     constraints:
+      api_version: "v2"
       delay_weeks: 12
       max_years: 2
   filings:

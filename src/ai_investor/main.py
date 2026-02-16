@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 from datetime import date
 
+from dotenv import load_dotenv
+
 from ai_investor.config import load_strategy
 from ai_investor.pipeline import InvestorPipeline
 from ai_investor.reporting.markdown_report import write_report
@@ -20,13 +22,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    load_dotenv(override=False)
     args = parse_args()
     strategy = load_strategy(args.config)
+    as_of = date.fromisoformat(args.as_of)
 
     pipeline = InvestorPipeline(strategy)
-    result = pipeline.run(dry_run=args.dry_run, top_n=args.top_n, top_k=args.top_k)
-
-    as_of = date.fromisoformat(args.as_of)
+    result = pipeline.run(dry_run=args.dry_run, top_n=args.top_n, top_k=args.top_k, as_of=as_of)
     if args.dry_run:
         print(f"[dry-run] Loaded strategy: {strategy.name} (mode={strategy.mode})")
         print(f"[dry-run] Quant metrics: {len(strategy.quantitative.metrics)}")

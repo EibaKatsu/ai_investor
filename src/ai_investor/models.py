@@ -18,6 +18,8 @@ class Candidate:
     sector: str = "UNKNOWN"
     quantitative_metrics: dict[str, float] = field(default_factory=dict)
     quantitative_score: float = 0.0
+    quantitative_score_price_now: float = 0.0
+    quantitative_score_fundamentals_base: float = 0.0
     qualitative_scores: dict[str, float] = field(default_factory=dict)
     qualitative_score_total: float = 0.0
     composite_score: float = 0.0

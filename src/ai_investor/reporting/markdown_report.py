@@ -15,6 +15,8 @@ def write_report(result: PipelineResult, output_dir: str | Path, as_of: date) ->
     lines = [
         f"# AI Investor Report ({as_of.isoformat()})",
         "",
+        "Quantitative score is split into two tracks: `Q(Price)` and `Q(Fund)`.",
+        "",
         "## Candidate Table",
         "",
         to_markdown_table(result.candidates),

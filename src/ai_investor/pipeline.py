@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from ai_investor.collectors.fundamentals import EdinetCollector
 from ai_investor.collectors.market_data import JQuantsMarketDataCollector
 from ai_investor.collectors.news import GNewsCollector, TdnetPublicCollector
@@ -12,12 +14,24 @@ from ai_investor.scoring import exclusion, qualitative, quantitative
 class InvestorPipeline:
     def __init__(self, config: StrategyConfig) -> None:
         self.config = config
-        self.market_data = JQuantsMarketDataCollector()
+        self.market_data = JQuantsMarketDataCollector(
+            data_source=config.data_sources["prices_and_fundamentals"],
+            universe_config=config.universe,
+        )
         self.edinet = EdinetCollector()
         self.tdnet = TdnetPublicCollector()
         self.gnews = GNewsCollector()
 
-    def run(self, dry_run: bool, top_n: int | None = None, top_k: int | None = None) -> PipelineResult:
+    def run(
+        self,
+        dry_run: bool,
+        top_n: int | None = None,
+        top_k: int | None = None,
+        as_of: date | None = None,
+    ) -> PipelineResult:
+        if as_of is not None:
+            self.market_data.as_of = as_of
+
         if dry_run:
             return PipelineResult()
 

@@ -11,6 +11,33 @@ AIによる投資アドバイス
 ## Quick Start
 
 ```bash
-python3 -m pip install -e .
-PYTHONPATH=src python3 -m ai_investor.main --config config/strategy_v1.yaml --dry-run
+python3.11 -m pip install -e .
+PYTHONPATH=src python3.11 -m ai_investor.main --config config/strategy_v1.yaml --dry-run
+```
+
+## J-Quants API Key
+
+`.env` で設定する（推奨）:
+
+```bash
+cp .env.example .env
+```
+
+`.env` の中身:
+
+```bash
+JQUANTS_API_KEY=your-api-key
+# Optional:
+# JQUANTS_MAX_STATEMENT_CODES=300
+# JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
+```
+
+実行時に `src/ai_investor/main.py` が `.env` を自動読込します。
+
+環境変数で直接設定する場合:
+
+```bash
+export JQUANTS_API_KEY="your-api-key"
+export JQUANTS_MAX_STATEMENT_CODES=300
+export JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
 ```
