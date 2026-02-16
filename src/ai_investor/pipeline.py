@@ -5,6 +5,7 @@ from datetime import date
 from ai_investor.collectors.fundamentals import EdinetCollector
 from ai_investor.collectors.market_data import JQuantsMarketDataCollector
 from ai_investor.collectors.news import GNewsCollector, TdnetPublicCollector
+from ai_investor.collectors.sbi_csv import SbiCsvMarketDataCollector
 from ai_investor.config import StrategyConfig
 from ai_investor.models import Candidate, PipelineResult
 from ai_investor.research.top3_deep_dive import build_recommendations
@@ -14,10 +15,17 @@ from ai_investor.scoring import exclusion, qualitative, quantitative
 class InvestorPipeline:
     def __init__(self, config: StrategyConfig) -> None:
         self.config = config
-        self.market_data = JQuantsMarketDataCollector(
-            data_source=config.data_sources["prices_and_fundamentals"],
-            universe_config=config.universe,
-        )
+        prices_source = config.data_sources["prices_and_fundamentals"]
+        if prices_source.provider == "sbi_csv":
+            self.market_data = SbiCsvMarketDataCollector(
+                data_source=prices_source,
+                universe_config=config.universe,
+            )
+        else:
+            self.market_data = JQuantsMarketDataCollector(
+                data_source=prices_source,
+                universe_config=config.universe,
+            )
         self.edinet = EdinetCollector()
         self.tdnet = TdnetPublicCollector()
         self.gnews = GNewsCollector()
@@ -29,7 +37,7 @@ class InvestorPipeline:
         top_k: int | None = None,
         as_of: date | None = None,
     ) -> PipelineResult:
-        if as_of is not None:
+        if as_of is not None and hasattr(self.market_data, "as_of"):
             self.market_data.as_of = as_of
 
         if dry_run:

@@ -41,3 +41,17 @@ export JQUANTS_API_KEY="your-api-key"
 export JQUANTS_MAX_STATEMENT_CODES=300
 export JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
 ```
+
+## SBI CSV Mode
+
+SBI銘柄スクリーニングCSVを使う場合:
+
+1. `data/raw/sbi_screening/` にCSVを配置
+2. `config/strategy_sbi_csv.yaml` で実行
+
+```bash
+PYTHONPATH=src python3.11 -m ai_investor.main \
+  --config config/strategy_sbi_csv.yaml \
+  --as-of 2026-02-16 \
+  --output reports
+```
