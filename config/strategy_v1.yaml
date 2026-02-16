@@ -1,5 +1,28 @@
 version: 1
 name: "late_bloomer_strategy_v1"
+mode: "free_first"
+
+data_sources:
+  prices_and_fundamentals:
+    provider: "jquants"
+    plan: "free"
+    constraints:
+      delay_weeks: 12
+      max_years: 2
+  filings:
+    provider: "edinet_api_v2"
+    plan: "public"
+  timely_disclosure:
+    provider: "tdnet_public_viewer"
+    plan: "public"
+    constraints:
+      listing_window_days: 31
+  news_enrichment:
+    provider: "gnews"
+    plan: "free"
+    constraints:
+      non_commercial_only: true
+      delay_hours: 12
 
 universe:
   market: "TSE_PRIME"
