@@ -29,12 +29,16 @@ def write_report(result: PipelineResult, output_dir: str | Path, as_of: date) ->
         lines.append("No recommendations generated.")
     else:
         for rec in result.top_recommendations:
+            links_text = "; ".join(rec.source_links) if rec.source_links else "N/A"
             lines.extend(
                 [
                     f"### {rec.ticker} - {rec.decision}",
                     f"- Reasons: {', '.join(rec.reasons) if rec.reasons else 'N/A'}",
                     f"- Risks: {', '.join(rec.risks) if rec.risks else 'N/A'}",
                     f"- Assumptions: {', '.join(rec.assumptions) if rec.assumptions else 'N/A'}",
+                    f"- Break Scenarios: {', '.join(rec.break_scenarios) if rec.break_scenarios else 'N/A'}",
+                    f"- Reevaluation Triggers: {', '.join(rec.reevaluation_triggers) if rec.reevaluation_triggers else 'N/A'}",
+                    f"- Source Links: {links_text}",
                     "",
                 ]
             )

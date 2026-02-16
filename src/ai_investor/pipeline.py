@@ -65,6 +65,13 @@ class InvestorPipeline:
         selected_top_n = top_n or self.config.quantitative.top_n_candidates
         shortlisted = ranked[:selected_top_n]
         selected_top_k = top_k or self.config.deep_dive.top_k
-        recommendations = build_recommendations(shortlisted, selected_top_k)
+        recommendations = build_recommendations(
+            shortlisted,
+            selected_top_k,
+            gnews=self.gnews,
+            tdnet=self.tdnet,
+            news_lookback_days=self.config.deep_dive.news_lookback_days,
+            as_of=as_of,
+        )
 
         return PipelineResult(candidates=shortlisted, top_recommendations=recommendations)

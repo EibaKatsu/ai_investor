@@ -27,6 +27,7 @@ cp .env.example .env
 
 ```bash
 JQUANTS_API_KEY=your-api-key
+GNEWS_API_KEY=your-gnews-api-key
 # Optional:
 # JQUANTS_MAX_STATEMENT_CODES=300
 # JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
@@ -38,6 +39,7 @@ JQUANTS_API_KEY=your-api-key
 
 ```bash
 export JQUANTS_API_KEY="your-api-key"
+export GNEWS_API_KEY="your-gnews-api-key"
 export JQUANTS_MAX_STATEMENT_CODES=300
 export JQUANTS_LIQUIDITY_LOOKBACK_DAYS=5
 ```
