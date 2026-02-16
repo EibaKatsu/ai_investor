@@ -1,0 +1,48 @@
+from __future__ import annotations
+
+from ai_investor.collectors.fundamentals import EdinetCollector
+from ai_investor.collectors.market_data import JQuantsMarketDataCollector
+from ai_investor.collectors.news import GNewsCollector, TdnetPublicCollector
+from ai_investor.config import StrategyConfig
+from ai_investor.models import Candidate, PipelineResult
+from ai_investor.research.top3_deep_dive import build_recommendations
+from ai_investor.scoring import exclusion, qualitative, quantitative
+
+
+class InvestorPipeline:
+    def __init__(self, config: StrategyConfig) -> None:
+        self.config = config
+        self.market_data = JQuantsMarketDataCollector()
+        self.edinet = EdinetCollector()
+        self.tdnet = TdnetPublicCollector()
+        self.gnews = GNewsCollector()
+
+    def run(self, dry_run: bool, top_n: int | None = None, top_k: int | None = None) -> PipelineResult:
+        if dry_run:
+            return PipelineResult()
+
+        universe_rows = self.market_data.fetch_universe()
+        candidates = [
+            Candidate(ticker=row.ticker, company_name=row.company_name, sector=row.sector)
+            for row in universe_rows
+        ]
+
+        quant_metrics = self.market_data.fetch_quant_metrics([c.ticker for c in candidates])
+        for candidate in candidates:
+            candidate.quantitative_metrics = quant_metrics.get(candidate.ticker, {})
+
+        quantitative.score_candidates(candidates, self.config.quantitative.metrics)
+        qualitative.score_candidates(candidates, self.config.qualitative.axes)
+        exclusion.apply_exclusion_rules(candidates, self.config.exclusion_rules)
+
+        for candidate in candidates:
+            qual_100 = (candidate.qualitative_score_total / 25.0) * 100.0
+            candidate.composite_score = candidate.quantitative_score + qual_100
+
+        ranked = sorted(candidates, key=lambda c: c.composite_score, reverse=True)
+        selected_top_n = top_n or self.config.quantitative.top_n_candidates
+        shortlisted = ranked[:selected_top_n]
+        selected_top_k = top_k or self.config.deep_dive.top_k
+        recommendations = build_recommendations(shortlisted, selected_top_k)
+
+        return PipelineResult(candidates=shortlisted, top_recommendations=recommendations)

@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(slots=True)
+class Evidence:
+    source: str
+    url: str
+    fetched_at: str
+    note: str
+
+
+@dataclass(slots=True)
+class Candidate:
+    ticker: str
+    company_name: str
+    sector: str = "UNKNOWN"
+    quantitative_metrics: dict[str, float] = field(default_factory=dict)
+    quantitative_score: float = 0.0
+    qualitative_scores: dict[str, float] = field(default_factory=dict)
+    qualitative_score_total: float = 0.0
+    composite_score: float = 0.0
+    excluded: bool = False
+    exclusion_reasons: list[str] = field(default_factory=list)
+    evidence: list[Evidence] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class Recommendation:
+    ticker: str
+    decision: str
+    reasons: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    assumptions: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class PipelineResult:
+    candidates: list[Candidate] = field(default_factory=list)
+    top_recommendations: list[Recommendation] = field(default_factory=list)
