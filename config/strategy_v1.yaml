@@ -1,0 +1,74 @@
+version: 1
+name: "late_bloomer_strategy_v1"
+
+universe:
+  market: "TSE_PRIME"
+  min_avg_trading_value_20d_jpy: 500000000
+  min_market_cap_jpy: 30000000000
+
+quantitative:
+  normalization: "sector_relative"
+  composite_method: "equal_weight"
+  top_n_candidates: 20
+  metrics:
+    - id: "pbr"
+      better: "lower"
+    - id: "per"
+      better: "lower"
+    - id: "roe"
+      better: "higher"
+    - id: "ev_ebitda"
+      better: "lower"
+    - id: "dividend_yield"
+      better: "higher"
+    - id: "revenue_cagr_3y"
+      better: "higher"
+    - id: "op_income_cagr_3y"
+      better: "higher"
+    - id: "operating_cf_margin"
+      better: "higher"
+    - id: "equity_ratio"
+      better: "higher"
+    - id: "net_de_ratio"
+      better: "lower"
+
+qualitative:
+  scale_min: 0
+  scale_max: 5
+  composite_method: "equal_weight"
+  axes:
+    - id: "temporary_lag_factor"
+      label: "出遅れ要因の一時性"
+    - id: "growth_driver_confidence"
+      label: "成長ドライバーの実現確度"
+    - id: "management_and_capital_policy"
+      label: "経営品質・資本政策"
+    - id: "competitive_advantage"
+      label: "競争優位性"
+    - id: "risk_resilience"
+      label: "リスク耐性"
+
+exclusion_rules:
+  - id: "going_concern_issue"
+    enabled: true
+  - id: "major_fraud_or_compliance_issue"
+    enabled: true
+  - id: "negative_net_worth"
+    enabled: true
+  - id: "long_term_negative_operating_cf"
+    enabled: true
+  - id: "liquidity_below_threshold"
+    enabled: true
+  - id: "large_guidance_cut_with_weak_rationale"
+    enabled: true
+
+deep_dive:
+  top_k: 3
+  news_lookback_days: 30
+  require_refutation_check: true
+
+output:
+  format: ["markdown", "csv"]
+  include_source_links: true
+  include_data_dates: true
+  include_audit_log: true
