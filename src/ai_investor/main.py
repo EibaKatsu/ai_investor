@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import date
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -22,7 +24,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    load_dotenv(override=False)
+    dotenv_path = Path.cwd() / ".env"
+    if dotenv_path.is_file():
+        load_dotenv(dotenv_path=dotenv_path, override=False)
+        # If an empty env var is already set, prefer non-empty value from .env.
+        if not os.getenv("OPENAI_API_KEY", "").strip():
+            load_dotenv(dotenv_path=dotenv_path, override=True)
+    else:
+        load_dotenv(override=False)
     args = parse_args()
     strategy = load_strategy(args.config)
     as_of = date.fromisoformat(args.as_of)
