@@ -3,10 +3,24 @@ AIによる投資アドバイス
 
 ## Project Docs
 
-- `docs/agent_spec.md`: 投資判断エージェント仕様（v1）
+- `docs/agent_spec.md`: 投資判断フロー仕様カタログ（複数仕様の入口）
+- `docs/agent_specs/`: 各投資判断フロー仕様（例: `tse-prime-laggard-flow-v1.md`）
 - `docs/implementation_plan.md`: 実装タスク分解（MVP）
 - `docs/data_sources.md`: データソース確定方針（無料優先）
 - `config/strategy_v1.yaml`: 初期戦略パラメータ
+
+## Skill Sources
+
+- `skills/`: Codex Skill のソースを格納
+- `skills/<skill-name>/SKILL.md`: スキル本体
+- `skills/<skill-name>/references/`: 紐づく仕様ドキュメント
+- `scripts/sync_codex_skills.sh`: `skills/` から `~/.codex/skills` へ同期
+
+同期コマンド:
+
+```bash
+./scripts/sync_codex_skills.sh
+```
 
 ## Quick Start
 
