@@ -15,7 +15,6 @@ description: 東証プライムの出遅れ株候補を抽出し、定量+定性
 - 必須入力:
   - `--config` (`config/strategy_v1.yaml` など)
 - 推奨入力:
-  - `--as-of YYYY-MM-DD`（無料優先モードでは必須）
   - `--output reports`
 - 主な環境変数:
   - `JQUANTS_API_KEY`
@@ -24,6 +23,13 @@ description: 東証プライムの出遅れ株候補を抽出し、定量+定性
   - `JQUANTS_ENFORCE_MARKET_CAP`（1なら時価総額300億円以上を強制）
   - `JQUANTS_MAX_STATEMENT_CODES`（無料枠の取得量制御）
   - `WEB_NEWS_MAX_ITEMS`
+
+## As-of Rule
+
+- `--as-of` は手動入力せず、`data/` 配下の最新CSVから決定する。
+- 日付をファイル名から抽出できるCSV（例: `*_20260216.csv`）がある場合は、その最大日付を `as-of` に使う。
+- ファイル名に日付がないCSVのみの場合は、更新時刻が最も新しいCSVの日付を `as-of` に使う。
+- 解決スクリプト: `skills/tse-prime-laggard-flow/scripts/latest_csv_asof.py`
 
 ## Workflow
 
@@ -60,9 +66,10 @@ description: 東証プライムの出遅れ株候補を抽出し、定量+定性
 ## Standard Command
 
 ```bash
+AS_OF="$(python3 skills/tse-prime-laggard-flow/scripts/latest_csv_asof.py --data-dir data)"
 PYTHONPATH=src python3.11 -m ai_investor.main \
-  --config config/strategy_v1.yaml \
-  --as-of 2026-02-16 \
+  --config config/strategy_sbi_csv.yaml \
+  --as-of "$AS_OF" \
   --output reports
 ```
 

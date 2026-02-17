@@ -1,4 +1,4 @@
 interface:
   display_name: "TSE Laggard Flow"
   short_description: "TSE Prime laggard stock analysis workflow"
-  default_prompt: "Run the TSE Prime laggard investment decision workflow for this project context."
+  default_prompt: "Run the TSE Prime laggard investment decision workflow using as-of resolved from the latest CSV under data/."
