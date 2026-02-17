@@ -70,11 +70,11 @@ def _axis_columns(candidates: list[Candidate]) -> list[str]:
 
 def _axis_label(axis_id: str) -> str:
     labels = {
-        "temporary_lag_factor": "Q-Temp",
-        "growth_driver_confidence": "Q-Growth",
-        "management_and_capital_policy": "Q-Mgmt",
-        "competitive_advantage": "Q-Edge",
-        "risk_resilience": "Q-Risk",
+        "temporary_lag_factor": "出遅れ要因の一時性",
+        "growth_driver_confidence": "成長ドライバーの実現確度",
+        "management_and_capital_policy": "経営品質・資本政策",
+        "competitive_advantage": "競争優位性",
+        "risk_resilience": "リスク耐性",
     }
     return labels.get(axis_id, axis_id)
 
