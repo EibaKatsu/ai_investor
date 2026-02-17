@@ -35,6 +35,8 @@ class Recommendation:
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
     assumptions: list[str] = field(default_factory=list)
+    lag_causes: list[str] = field(default_factory=list)
+    critical_views: list[str] = field(default_factory=list)
     break_scenarios: list[str] = field(default_factory=list)
     reevaluation_triggers: list[str] = field(default_factory=list)
     source_links: list[str] = field(default_factory=list)

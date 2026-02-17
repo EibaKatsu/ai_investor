@@ -36,6 +36,8 @@ def write_report(result: PipelineResult, output_dir: str | Path, as_of: date) ->
                     f"- Reasons: {', '.join(rec.reasons) if rec.reasons else 'N/A'}",
                     f"- Risks: {', '.join(rec.risks) if rec.risks else 'N/A'}",
                     f"- Assumptions: {', '.join(rec.assumptions) if rec.assumptions else 'N/A'}",
+                    f"- 具体的な出遅れ原因: {', '.join(rec.lag_causes) if rec.lag_causes else 'N/A'}",
+                    f"- 投資判断への批判的意見: {', '.join(rec.critical_views) if rec.critical_views else 'N/A'}",
                     f"- Break Scenarios: {', '.join(rec.break_scenarios) if rec.break_scenarios else 'N/A'}",
                     f"- Reevaluation Triggers: {', '.join(rec.reevaluation_triggers) if rec.reevaluation_triggers else 'N/A'}",
                     f"- Source Links: {links_text}",

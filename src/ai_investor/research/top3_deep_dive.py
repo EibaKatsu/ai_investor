@@ -21,6 +21,8 @@ class _AIEvaluation:
     reasons: list[str]
     risks: list[str]
     assumptions: list[str]
+    lag_causes: list[str]
+    critical_views: list[str]
     break_scenarios: list[str]
     reevaluation_triggers: list[str]
 
@@ -59,6 +61,8 @@ def build_recommendations(
                 reasons=evaluation.reasons,
                 risks=evaluation.risks,
                 assumptions=evaluation.assumptions,
+                lag_causes=evaluation.lag_causes,
+                critical_views=evaluation.critical_views,
                 break_scenarios=evaluation.break_scenarios,
                 reevaluation_triggers=evaluation.reevaluation_triggers,
                 source_links=links,
@@ -126,6 +130,7 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         "あなたは日本株アナリストです。入力データのみを根拠に、"
         "投資判断を0-100点へポイント換算してください。"
         "キーワード機械判定ではなく、文脈・整合性・リスクの強弱で評価します。"
+        "さらに、出遅れ原因を具体的に特定し、投資判断に対する批判的意見も提示してください。"
         "以下5軸を0-5で採点し、平均×20をtotal_scoreにしてください。"
         "1) valuation_attractiveness 2) financial_quality 3) catalyst_strength "
         "4) downside_risk_control 5) evidence_quality。"
@@ -144,6 +149,8 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         '"reasons":["...最大3件"],'
         '"risks":["...最大3件"],'
         '"assumptions":["...最大3件"],'
+        '"lag_causes":["...具体的な出遅れ原因を最大3件"],'
+        '"critical_views":["...投資判断への批判的意見を最大3件"],'
         '"break_scenarios":["...最大3件"],'
         '"reevaluation_triggers":["...最大3件"]'
         "}"
@@ -204,6 +211,8 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
     reasons = _clip_text_list(model_result.get("reasons"), 3)
     risks = _clip_text_list(model_result.get("risks"), 3)
     assumptions = _clip_text_list(model_result.get("assumptions"), 3)
+    lag_causes = _clip_text_list(model_result.get("lag_causes"), 3)
+    critical_views = _clip_text_list(model_result.get("critical_views"), 3)
     break_scenarios = _clip_text_list(model_result.get("break_scenarios"), 3)
     reevaluation_triggers = _clip_text_list(model_result.get("reevaluation_triggers"), 3)
 
@@ -221,6 +230,10 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         risks = ["短期材料の変化により判断が変わる可能性"]
     if not assumptions:
         assumptions = ["次回決算・開示で前提条件を更新すること"]
+    if not lag_causes:
+        lag_causes = _infer_lag_causes(candidate, news_items)
+    if not critical_views:
+        critical_views = _infer_critical_views(candidate, news_items, decision)
     if not break_scenarios:
         break_scenarios = ["業績または資本政策が悪化し前提が崩れる場合"]
     if not reevaluation_triggers:
@@ -232,6 +245,8 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         reasons=reasons[:3],
         risks=risks[:3],
         assumptions=assumptions[:3],
+        lag_causes=lag_causes[:3],
+        critical_views=critical_views[:3],
         break_scenarios=break_scenarios[:3],
         reevaluation_triggers=reevaluation_triggers[:3],
     )
@@ -252,6 +267,8 @@ def _fallback_evaluation(candidate: Candidate, news_items: list[NewsItem]) -> _A
     assumptions = [
         "AI評価APIを有効化して再採点すること",
     ]
+    lag_causes = _infer_lag_causes(candidate, news_items)
+    critical_views = _infer_critical_views(candidate, news_items, decision)
     break_scenarios = [
         "決算や開示で前提条件が変化した場合",
     ]
@@ -265,6 +282,8 @@ def _fallback_evaluation(candidate: Candidate, news_items: list[NewsItem]) -> _A
         reasons=reasons[:3],
         risks=risks[:3],
         assumptions=assumptions[:3],
+        lag_causes=lag_causes[:3],
+        critical_views=critical_views[:3],
         break_scenarios=break_scenarios[:3],
         reevaluation_triggers=reevaluation_triggers[:3],
     )
@@ -307,3 +326,75 @@ def _dedupe_by_url(items: list[NewsItem]) -> list[NewsItem]:
         seen_urls.add(item.url)
         deduped.append(item)
     return deduped
+
+
+def _infer_lag_causes(candidate: Candidate, news_items: list[NewsItem]) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    causes: list[str] = []
+
+    per = _metric(metrics, "per")
+    pbr = _metric(metrics, "pbr")
+    roe = _metric(metrics, "roe")
+    revenue = _metric(metrics, "revenue_cagr_3y")
+    op_income = _metric(metrics, "op_income_cagr_3y")
+    de_ratio = _metric(metrics, "net_de_ratio")
+
+    if per is not None and per < 12.0 and pbr is not None and pbr < 1.2:
+        causes.append("低PER・低PBRの割安状態が継続し、評価修正が進んでいない")
+    if revenue is not None and revenue < 5.0:
+        causes.append("売上成長率が鈍く、成長期待の織り込みが弱い")
+    if op_income is not None and op_income < 5.0:
+        causes.append("利益成長の弱さが株価評価の重しになっている")
+    if roe is not None and roe < 8.0:
+        causes.append("ROE水準が相対的に低く、資本効率面で評価が伸びにくい")
+    if de_ratio is not None and de_ratio > 80.0:
+        causes.append("財務レバレッジへの懸念がバリュエーションを抑制している")
+
+    negative_heads = _extract_negative_headlines(news_items)
+    if negative_heads:
+        causes.append(f"直近でネガティブ材料（例: {negative_heads[0]}）が意識されている")
+    if not causes:
+        causes.append("材料不足により評価見直しのトリガーが不明確")
+    return causes[:3]
+
+
+def _infer_critical_views(candidate: Candidate, news_items: list[NewsItem], decision: str) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    views: list[str] = []
+
+    if decision == "Recommend":
+        views.append("割安指標はバリュートラップであり、再評価が起きない可能性がある")
+
+    if _metric(metrics, "op_income_cagr_3y") is not None and _metric(metrics, "op_income_cagr_3y") < 0.0:
+        views.append("利益成長がマイナスで、投資判断が早計である可能性がある")
+    if _metric(metrics, "revenue_cagr_3y") is not None and _metric(metrics, "revenue_cagr_3y") < 0.0:
+        views.append("売上が縮小トレンドで、中長期の成長前提が崩れる可能性がある")
+    if _metric(metrics, "net_de_ratio") is not None and _metric(metrics, "net_de_ratio") > 100.0:
+        views.append("負債負担が重く、景気後退局面で下振れ余地が大きい")
+    if not news_items:
+        views.append("ニュース根拠が限定的で、現時点の判断確度は十分ではない")
+    elif _extract_negative_headlines(news_items):
+        views.append("直近ニュースにネガティブ事象が含まれ、想定以上の下方リスクがある")
+
+    if not views:
+        views.append("外部環境悪化時には想定リターンより先にリスクが顕在化し得る")
+    return views[:3]
+
+
+def _extract_negative_headlines(news_items: list[NewsItem]) -> list[str]:
+    keywords = ("減益", "下方修正", "事故", "訴訟", "不祥事", "赤字", "業績悪化", "減配")
+    found: list[str] = []
+    for item in news_items:
+        title = item.title
+        if any(k in title for k in keywords):
+            found.append(title)
+        if len(found) >= 3:
+            break
+    return found
+
+
+def _metric(metrics: dict[str, float], key: str) -> float | None:
+    value = metrics.get(key)
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
