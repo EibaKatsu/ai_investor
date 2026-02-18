@@ -45,6 +45,11 @@ class DeepDiveConfig:
 
 
 @dataclass(slots=True)
+class RuntimeConfig:
+    required_env: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class StrategyConfig:
     version: int
     name: str
@@ -55,6 +60,7 @@ class StrategyConfig:
     qualitative: QualitativeConfig
     exclusion_rules: list[dict[str, Any]]
     deep_dive: DeepDiveConfig
+    runtime: RuntimeConfig
     output: dict[str, Any]
 
 
@@ -83,6 +89,7 @@ def load_strategy(path: str | Path) -> StrategyConfig:
     quantitative = QuantitativeConfig(**loaded["quantitative"])
     qualitative = QualitativeConfig(**loaded["qualitative"])
     deep_dive = DeepDiveConfig(**loaded["deep_dive"])
+    runtime = RuntimeConfig(**loaded.get("runtime", {}))
 
     return StrategyConfig(
         version=loaded["version"],
@@ -94,5 +101,6 @@ def load_strategy(path: str | Path) -> StrategyConfig:
         qualitative=qualitative,
         exclusion_rules=loaded.get("exclusion_rules", []),
         deep_dive=deep_dive,
+        runtime=runtime,
         output=loaded.get("output", {}),
     )

@@ -34,6 +34,15 @@ def main() -> int:
         load_dotenv(override=False)
     args = parse_args()
     strategy = load_strategy(args.config)
+    missing_required_env = [
+        key for key in strategy.runtime.required_env if not os.getenv(key, "").strip()
+    ]
+    if missing_required_env:
+        missing = ", ".join(missing_required_env)
+        raise SystemExit(
+            f"Missing required environment variable(s): {missing}. "
+            "Set them in .env or your shell environment."
+        )
     as_of = date.fromisoformat(args.as_of)
 
     pipeline = InvestorPipeline(strategy)

@@ -2,6 +2,10 @@ version: 1
 name: "late_bloomer_strategy_sbi_csv_v1"
 mode: "free_first"
 
+runtime:
+  required_env:
+    - "OPENAI_API_KEY"
+
 data_sources:
   prices_and_fundamentals:
     provider: "sbi_csv"
