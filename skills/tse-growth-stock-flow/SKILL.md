@@ -93,6 +93,12 @@ PYTHONPATH=src python3.11 -m ai_investor.main \
   --output reports
 ```
 
+### Execution Environment
+
+- 標準コマンドは **サンドボックス外** で実行する。
+- 理由: `OPENAI_API_KEY` を使うLLM評価とWebニュース取得で外部ネットワーク疎通が必要なため。
+- Codex実行時は `sandbox_permissions: require_escalated` を指定して実行する。
+
 必要に応じて `--top-n` / `--top-k` を指定して母集団や最終件数を調整する。  
 この標準コマンドの出力は一次スクリーニング結果として扱い、最終判断は本スキルの成長7観点で再採点する。
 
