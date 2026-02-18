@@ -1,6 +1,6 @@
 ---
 name: tse-growth-stock-flow
-description: 成長株候補を抽出し、成長7観点で定量+定性評価して上位3件の条件付き投資判断を作るワークフロー。「成長株候補をリストして」という指令で実行する。`data/raw/sbi_screening/成長株_yyyymmdd.csv` を使った候補20件テーブル作成、除外ルール判定、ニュースを含む詳細調査を行うときに使う。`docs/agent_specs/tse-growth-stock-flow-v1.md` 準拠の手順で分析・再実行・レポート更新が必要な場面で呼び出す。
+description: 成長株候補を抽出し、成長7観点で定量+定性評価して上位3件の条件付き投資判断を作るワークフロー。「成長株候補をリストして」という指令で実行する。`data/sbi_screening/成長株/成長株_yyyymmdd.csv` を使った候補20件テーブル作成、除外ルール判定、ニュースを含む詳細調査を行うときに使う。`docs/agent_specs/tse-growth-stock-flow-v1.md` 準拠の手順で分析・再実行・レポート更新が必要な場面で呼び出す。
 ---
 
 # TSE Growth Stock Flow
@@ -8,12 +8,12 @@ description: 成長株候補を抽出し、成長7観点で定量+定性評価�
 ## Overview
 
 このスキルは `docs/agent_specs/tse-growth-stock-flow-v1.md` の v1 仕様を実行用手順に落としたものです。  
-`data/raw/sbi_screening/成長株_yyyymmdd.csv` を入力に「成長株候補」を評価し、候補20件と上位3件の投資判断（Recommend / Watch / Skip）を出力します。
+`data/sbi_screening/成長株/成長株_yyyymmdd.csv` を入力に「成長株候補」を評価し、候補20件と上位3件の投資判断（Recommend / Watch / Skip）を出力します。
 
 ## Inputs
 
 - 必須入力:
-  - `data/raw/sbi_screening/成長株_yyyymmdd.csv`
+  - `data/sbi_screening/成長株/成長株_yyyymmdd.csv`
 - 推奨入力:
   - `--output reports`（レポート出力先）
 - 主な環境変数:
@@ -22,7 +22,7 @@ description: 成長株候補を抽出し、成長7観点で定量+定性評価�
 
 ## As-of Rule
 
-- `--as-of` は手動入力せず、`data/raw/sbi_screening` 配下の `成長株_*.csv` から決定する。
+- `--as-of` は手動入力せず、`data/sbi_screening/成長株` 配下の `成長株_*.csv` から決定する。
 - ファイル名に日付（例: `成長株_20260218.csv`）がある場合は、その最大日付を `as-of` に使う。
 - 日付を抽出できないCSVのみの場合は、更新時刻が最も新しいCSVの日付を `as-of` に使う。
 - 解決スクリプト: `skills/tse-growth-stock-flow/scripts/latest_csv_asof.py`
@@ -86,7 +86,7 @@ description: 成長株候補を抽出し、成長7観点で定量+定性評価�
 ## Standard Command
 
 ```bash
-AS_OF="$(python3 skills/tse-growth-stock-flow/scripts/latest_csv_asof.py --data-dir data/raw/sbi_screening)"
+AS_OF="$(python3 skills/tse-growth-stock-flow/scripts/latest_csv_asof.py --data-dir data/sbi_screening/成長株)"
 PYTHONPATH=src python3.11 -m ai_investor.main \
   --config config/strategy_growth_sbi_csv.yaml \
   --as-of "$AS_OF" \

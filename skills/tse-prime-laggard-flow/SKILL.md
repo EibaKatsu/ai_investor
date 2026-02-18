@@ -26,7 +26,7 @@ description: 東証プライムの出遅れ株候補を抽出し、定量+定性
 
 ## As-of Rule
 
-- `--as-of` は手動入力せず、`data/出遅れ株` 配下の最新CSVから決定する。
+- `--as-of` は手動入力せず、`data/sbi_screening/出遅れ株` 配下の最新CSVから決定する。
 - 日付をファイル名から抽出できるCSV（例: `*_20260216.csv`）がある場合は、その最大日付を `as-of` に使う。
 - ファイル名に日付がないCSVのみの場合は、更新時刻が最も新しいCSVの日付を `as-of` に使う。
 - 解決スクリプト: `skills/tse-prime-laggard-flow/scripts/latest_csv_asof.py`
@@ -80,7 +80,7 @@ description: 東証プライムの出遅れ株候補を抽出し、定量+定性
 ## Standard Command
 
 ```bash
-AS_OF="$(python3 skills/tse-prime-laggard-flow/scripts/latest_csv_asof.py --data-dir data)"
+AS_OF="$(python3 skills/tse-prime-laggard-flow/scripts/latest_csv_asof.py --data-dir data/sbi_screening/出遅れ株)"
 PYTHONPATH=src python3.11 -m ai_investor.main \
   --config config/strategy_sbi_csv.yaml \
   --as-of "$AS_OF" \

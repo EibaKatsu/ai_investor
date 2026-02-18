@@ -58,7 +58,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Resolve as-of date from the latest CSV under a data directory.",
     )
-    parser.add_argument("--data-dir", default="data", help="Data root directory")
+    parser.add_argument(
+        "--data-dir",
+        default="data/sbi_screening/出遅れ株",
+        help="Laggard stock CSV directory",
+    )
     parser.add_argument(
         "--print-path",
         action="store_true",

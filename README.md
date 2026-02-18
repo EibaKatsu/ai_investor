@@ -67,7 +67,7 @@ export WEB_NEWS_MAX_ITEMS=20
 
 SBI銘柄スクリーニングCSVを使う場合:
 
-1. `data/raw/sbi_screening/` にCSVを配置
+1. `data/sbi_screening/出遅れ株/` または `data/sbi_screening/成長株/` にCSVを配置
 2. `config/strategy_sbi_csv.yaml` で実行
 
 ```bash

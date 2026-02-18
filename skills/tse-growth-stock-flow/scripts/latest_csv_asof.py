@@ -62,7 +62,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--data-dir",
-        default="data/raw/sbi_screening",
+        default="data/sbi_screening/成長株",
         help="Growth stock CSV directory",
     )
     parser.add_argument(

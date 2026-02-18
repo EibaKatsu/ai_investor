@@ -114,7 +114,7 @@ class SbiCsvMarketDataCollector:
             if path.exists():
                 return path
 
-        csv_dir = self.data_source.constraints.get("csv_dir", "data/raw/sbi_screening")
+        csv_dir = self.data_source.constraints.get("csv_dir", "data/sbi_screening")
         pattern = self.data_source.constraints.get("csv_glob", "*.csv")
         path_dir = Path(str(csv_dir))
         files = sorted(path_dir.glob(str(pattern)))

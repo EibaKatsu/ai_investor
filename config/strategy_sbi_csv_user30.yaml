@@ -1,5 +1,5 @@
 version: 1
-name: "late_bloomer_strategy_sbi_csv_v1"
+name: "late_bloomer_strategy_sbi_csv_user30_v1"
 mode: "free_first"
 
 data_sources:
@@ -8,7 +8,7 @@ data_sources:
     plan: "manual_csv"
     constraints:
       csv_dir: "data/sbi_screening/出遅れ株"
-      csv_glob: "*.csv"
+      csv_glob: "出遅れ株_*user30.csv"
   filings:
     provider: "edinet_api_v2"
     plan: "public"
@@ -24,9 +24,9 @@ data_sources:
       max_items: 20
 
 universe:
-  market: "TSE_PRIME"
-  min_avg_trading_value_20d_jpy: 500000000
-  min_market_cap_jpy: 30000000000
+  market: "ALL"
+  min_avg_trading_value_20d_jpy: 0
+  min_market_cap_jpy: 0
 
 quantitative:
   normalization: "sector_relative"

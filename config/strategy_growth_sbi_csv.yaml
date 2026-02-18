@@ -7,8 +7,8 @@ data_sources:
     provider: "sbi_csv"
     plan: "manual_csv"
     constraints:
-      csv_dir: "data/raw/sbi_screening"
-      csv_glob: "成長株_*.csv"
+      csv_dir: "data/sbi_screening/成長株"
+      csv_glob: "*.csv"
   filings:
     provider: "edinet_api_v2"
     plan: "public"

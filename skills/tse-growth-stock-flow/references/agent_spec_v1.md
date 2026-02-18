@@ -2,12 +2,12 @@
 
 ## 1. 目的
 
-`data/raw/sbi_screening/成長株_yyyymmdd.csv` を起点に成長株候補を抽出し、定量・定性の両面で評価して、最終的に上位3件の投資判断（推薦のみ）を提示する。
+`data/sbi_screening/成長株/成長株_yyyymmdd.csv` を起点に成長株候補を抽出し、定量・定性の両面で評価して、最終的に上位3件の投資判断（推薦のみ）を提示する。
 
 ## 2. 対象と前提
 
 - 対象データ: SBIスクリーニングCSV（成長株）
-- 入力ファイル: `./data/raw/sbi_screening/成長株_yyyymmdd.csv`
+- 入力ファイル: `./data/sbi_screening/成長株/成長株_yyyymmdd.csv`
 - `as-of` はファイル名日付（`yyyymmdd`）の最大値を優先して決定する
 - 取引執行は行わない（推薦のみ）
 - ニュース確認は直近30日を優先する
