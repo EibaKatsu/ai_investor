@@ -34,6 +34,8 @@ class Candidate:
 class Recommendation:
     ticker: str
     decision: str
+    company_name: str = ""
+    business_overview: str = ""
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
     assumptions: list[str] = field(default_factory=list)

@@ -31,9 +31,11 @@ def write_report(result: PipelineResult, output_dir: str | Path, as_of: date) ->
     else:
         for rec in result.top_recommendations:
             links_text = "; ".join(rec.source_links) if rec.source_links else "N/A"
+            company_text = rec.company_name or "N/A"
+            overview_text = rec.business_overview or "主力事業は直近開示の要確認"
             lines.extend(
                 [
-                    f"### {rec.ticker} - {rec.decision}",
+                    f"### {rec.ticker} {company_text}（{overview_text}） - {rec.decision}",
                     f"- Reasons: {', '.join(rec.reasons) if rec.reasons else 'N/A'}",
                     f"- Risks: {', '.join(rec.risks) if rec.risks else 'N/A'}",
                     f"- Assumptions: {', '.join(rec.assumptions) if rec.assumptions else 'N/A'}",

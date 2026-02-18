@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 import json
 import os
+import re
 
 import requests
 
@@ -18,6 +19,7 @@ AI_TIMEOUT_SECONDS = 30
 class _AIEvaluation:
     total_score: float
     decision: str
+    business_overview: str
     reasons: list[str]
     risks: list[str]
     assumptions: list[str]
@@ -61,6 +63,8 @@ def build_recommendations(
             Recommendation(
                 ticker=candidate.ticker,
                 decision=evaluation.decision,
+                company_name=candidate.company_name,
+                business_overview=evaluation.business_overview,
                 reasons=evaluation.reasons,
                 risks=evaluation.risks,
                 assumptions=evaluation.assumptions,
@@ -156,6 +160,9 @@ def _evaluate_with_llm(
         "1) valuation_attractiveness 2) financial_quality 3) catalyst_strength "
         "4) downside_risk_control 5) evidence_quality。"
         "decisionは Recommend/Watch/Skip のいずれか。"
+        "一般論の文言は禁止です。"
+        "「業績が予想を上回る場合、再評価の可能性」「市場全体の景気後退が影響を及ぼす可能性がある」"
+        "のような抽象表現を使わず、必ず当該企業固有の数値・出来事を入れてください。"
         "出力はJSONのみで返してください。"
     )
     user_prompt = (
@@ -167,6 +174,7 @@ def _evaluate_with_llm(
         '"downside_risk_control":0-5,"evidence_quality":0-5},'
         '"total_score":0-100,'
         '"decision":"Recommend|Watch|Skip",'
+        '"business_overview":"40文字以内の業務概要",'
         '"reasons":["...最大3件"],'
         '"risks":["...最大3件"],'
         '"assumptions":["...最大3件"],'
@@ -232,6 +240,11 @@ def _evaluate_with_llm(
     if decision not in {"Recommend", "Watch", "Skip"}:
         decision = _decision_from_score(total_score)
 
+    business_overview = _normalize_business_overview(
+        model_result.get("business_overview"),
+        candidate,
+        news_items,
+    )
     reasons = _clip_text_list(model_result.get("reasons"), 3)
     risks = _clip_text_list(model_result.get("risks"), 3)
     assumptions = _clip_text_list(model_result.get("assumptions"), 3)
@@ -253,30 +266,60 @@ def _evaluate_with_llm(
     )
     reasons = [score_headline] + reasons
 
-    if not risks:
-        risks = ["短期材料の変化により判断が変わる可能性"]
-    if not assumptions:
-        assumptions = ["次回決算・開示で前提条件を更新すること"]
+    reasons = _sanitize_specific_list(reasons, 3, _build_reason_fallback(candidate, total_score))
+    risks = _sanitize_specific_list(risks, 3, _build_specific_risk_fallback(candidate, news_items))
+    assumptions = _sanitize_specific_list(assumptions, 3, _build_specific_assumption_fallback(candidate))
     if not industry_trends:
         industry_trends = _infer_industry_trends(candidate, news_items)
-    if not peer_strengths or not peer_weaknesses:
-        fallback_strengths, fallback_weaknesses = _infer_peer_strengths_weaknesses(candidate, peer_candidates)
-        if not peer_strengths:
-            peer_strengths = fallback_strengths
-        if not peer_weaknesses:
-            peer_weaknesses = fallback_weaknesses
+    fallback_strengths, fallback_weaknesses = _infer_peer_strengths_weaknesses(candidate, peer_candidates)
+    if not peer_strengths:
+        peer_strengths = fallback_strengths
+    if not peer_weaknesses:
+        peer_weaknesses = fallback_weaknesses
+    industry_trends = _sanitize_specific_list(
+        industry_trends,
+        3,
+        _infer_industry_trends(candidate, news_items),
+    )
+    peer_strengths = _sanitize_specific_list(
+        peer_strengths,
+        3,
+        fallback_strengths,
+    )
+    peer_weaknesses = _sanitize_specific_list(
+        peer_weaknesses,
+        3,
+        fallback_weaknesses,
+    )
     if not lag_causes:
         lag_causes = _infer_lag_causes(candidate, news_items)
     if not critical_views:
         critical_views = _infer_critical_views(candidate, news_items, decision)
-    if not break_scenarios:
-        break_scenarios = ["業績または資本政策が悪化し前提が崩れる場合"]
-    if not reevaluation_triggers:
-        reevaluation_triggers = ["次回決算発表", "業績予想修正・配当修正の開示"]
+    lag_causes = _sanitize_specific_list(
+        lag_causes,
+        3,
+        _build_specific_lag_cause_fallback(candidate, news_items),
+    )
+    critical_views = _sanitize_specific_list(
+        critical_views,
+        3,
+        _build_specific_critical_view_fallback(candidate, news_items, decision),
+    )
+    break_scenarios = _sanitize_specific_list(
+        break_scenarios,
+        3,
+        _build_specific_break_scenarios(candidate),
+    )
+    reevaluation_triggers = _sanitize_specific_list(
+        reevaluation_triggers,
+        3,
+        _build_specific_reevaluation_triggers(candidate),
+    )
 
     return _AIEvaluation(
         total_score=total_score,
         decision=decision,
+        business_overview=business_overview,
         reasons=reasons[:3],
         risks=risks[:3],
         assumptions=assumptions[:3],
@@ -298,31 +341,24 @@ def _fallback_evaluation(
     qual_100 = candidate.qualitative_score_normalized
     total_score = (candidate.quantitative_score * 0.8) + (qual_100 * 0.2)
     decision = _decision_from_score(total_score)
+    business_overview = _fallback_business_overview(candidate, news_items)
     reasons = [
         f"暫定点 {total_score:.1f}/100（AI評価API未設定または応答不正）",
         f"定量総合点 {candidate.quantitative_score:.1f} / 定性換算 {qual_100:.1f}",
         f"参照ニュース件数 {len(news_items)}件",
     ]
-    risks = [
-        "AI評価が未適用のため、詳細判断の精度が限定的",
-    ]
-    assumptions = [
-        "AI評価APIを有効化して再採点すること",
-    ]
+    risks = _build_specific_risk_fallback(candidate, news_items)
+    assumptions = _build_specific_assumption_fallback(candidate)
     industry_trends = _infer_industry_trends(candidate, news_items)
     peer_strengths, peer_weaknesses = _infer_peer_strengths_weaknesses(candidate, peer_candidates)
     lag_causes = _infer_lag_causes(candidate, news_items)
     critical_views = _infer_critical_views(candidate, news_items, decision)
-    break_scenarios = [
-        "決算や開示で前提条件が変化した場合",
-    ]
-    reevaluation_triggers = [
-        "OPENAI_API_KEY設定後の再実行",
-        "次回決算発表",
-    ]
+    break_scenarios = _build_specific_break_scenarios(candidate)
+    reevaluation_triggers = _build_specific_reevaluation_triggers(candidate)
     return _AIEvaluation(
         total_score=total_score,
         decision=decision,
+        business_overview=business_overview,
         reasons=reasons[:3],
         risks=risks[:3],
         assumptions=assumptions[:3],
@@ -547,7 +583,14 @@ def _infer_critical_views(candidate: Candidate, news_items: list[NewsItem], deci
         views.append("直近ニュースにネガティブ事象が含まれ、想定以上の下方リスクがある")
 
     if not views:
-        views.append("外部環境悪化時には想定リターンより先にリスクが顕在化し得る")
+        growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+        per = _metric(metrics, "per")
+        if growth is not None and per is not None and growth > 0:
+            views.append(
+                f"PER {per:.1f}倍に対して売上成長率が{growth:.1f}%を下回ると、評価縮小リスクが高まる"
+            )
+        else:
+            views.append("定量根拠が不足しており、投資判断の再現性を担保しにくい")
     return views[:3]
 
 
@@ -568,3 +611,217 @@ def _metric(metrics: dict[str, float], key: str) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     return None
+
+
+_GENERIC_PATTERNS = (
+    "業績が予想を上回る場合",
+    "再評価の可能性",
+    "市場全体の景気後退",
+    "影響を及ぼす可能性",
+    "外部環境悪化時",
+    "短期材料の変化により判断が変わる可能性",
+    "前提条件が変化した場合",
+    "前提条件を更新すること",
+    "市場全体の景気後退",
+    "業界全体の景気回復",
+    "競争が激化",
+    "新規事業の成功",
+)
+
+
+def _sanitize_specific_list(items: list[str], limit: int, fallback: list[str]) -> list[str]:
+    merged = [*items, *fallback]
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in merged:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        if _is_too_generic_statement(text):
+            continue
+        if not _has_specific_evidence(text):
+            continue
+        out.append(text)
+        seen.add(text)
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+
+def _is_too_generic_statement(text: str) -> bool:
+    compact = re.sub(r"\s+", "", text)
+    if any(pattern in compact for pattern in _GENERIC_PATTERNS):
+        return True
+    if "可能性" in compact and not re.search(r"\d", compact):
+        if all(marker not in compact for marker in ("売上", "利益", "PER", "ROE", "負債", "決算", "開示", "案件")):
+            return True
+    if not re.search(r"\d", compact):
+        evidence_markers = ("売上", "営業利益率", "経常利益", "PER", "ROE", "自己資本比率", "有利子負債", "下方修正", "上方修正", "自社株買い", "決算")
+        if all(marker not in compact for marker in evidence_markers):
+            if any(marker in compact for marker in ("市場全体", "業界全体", "競争", "景気", "成長")):
+                return True
+    return False
+
+
+def _has_specific_evidence(text: str) -> bool:
+    compact = re.sub(r"\s+", "", text)
+    if re.search(r"\d", compact):
+        return True
+    evidence_markers = (
+        "売上",
+        "営業利益率",
+        "経常利益",
+        "PER",
+        "ROE",
+        "自己資本比率",
+        "有利子負債",
+        "決算",
+        "開示",
+        "下方修正",
+        "上方修正",
+        "自社株買い",
+        "受注",
+        "案件",
+        "保有割合",
+        "配当",
+        "シェア",
+    )
+    return any(marker in compact for marker in evidence_markers)
+
+
+def _build_reason_fallback(candidate: Candidate, total_score: float) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    reasons: list[str] = [f"AI総合点 {total_score:.1f}/100（数値根拠ベース）"]
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    op_margin = _metric(metrics, "operating_margin")
+    per = _metric(metrics, "per")
+
+    if growth is not None:
+        reasons.append(f"売上成長率 {growth:.1f}% を維持し、成長期待を裏付けている")
+    if op_margin is not None:
+        reasons.append(f"売上高営業利益率 {op_margin:.1f}% と収益性が確保されている")
+    if per is not None and growth is not None and growth > 0:
+        reasons.append(f"PER {per:.1f}倍 / 成長率 {growth:.1f}% で過度な割高感は限定的")
+    return reasons[:3]
+
+
+def _build_specific_risk_fallback(candidate: Candidate, news_items: list[NewsItem]) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    risks: list[str] = []
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    per = _metric(metrics, "per")
+    de_ratio = _metric(metrics, "net_de_ratio")
+    op_margin = _metric(metrics, "operating_margin")
+
+    if per is not None and growth is not None and growth > 0 and (per / growth) > 1.5:
+        risks.append(f"PER {per:.1f}倍に対し売上成長率 {growth:.1f}% で、バリュエーション調整余地がある")
+    if de_ratio is not None and de_ratio > 60.0:
+        risks.append(f"有利子負債自己資本比率 {de_ratio:.1f}% は高めで、金利上昇局面で逆風になり得る")
+    if op_margin is not None and op_margin < 10.0:
+        risks.append(f"売上高営業利益率 {op_margin:.1f}% と低く、成長鈍化時の利益下振れ耐性が弱い")
+
+    negative = _extract_negative_headlines(news_items)
+    if negative:
+        risks.append(f"直近ネガティブ材料: {negative[0]}")
+
+    if not risks:
+        risks.append(f"参照ニュース件数 {len(news_items)}件で、事業進捗の検証材料が少ない")
+    return risks[:3]
+
+
+def _build_specific_assumption_fallback(candidate: Candidate) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    assumptions: list[str] = []
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    op_margin = _metric(metrics, "operating_margin")
+    de_ratio = _metric(metrics, "net_de_ratio")
+
+    if growth is not None:
+        assumptions.append(f"売上高成長率が {growth:.1f}% 前後を維持できること")
+    if op_margin is not None:
+        assumptions.append(f"売上高営業利益率を {op_margin:.1f}% 以上で維持できること")
+    if de_ratio is not None:
+        assumptions.append(f"有利子負債自己資本比率を {max(20.0, de_ratio):.1f}% 以下で管理できること")
+    if not assumptions:
+        assumptions.append("次回決算で売上成長率と利益率のKPIが継続確認できること")
+    return assumptions[:3]
+
+
+def _build_specific_break_scenarios(candidate: Candidate) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    scenarios: list[str] = []
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    op_margin = _metric(metrics, "operating_margin")
+    de_ratio = _metric(metrics, "net_de_ratio")
+
+    if growth is not None:
+        scenarios.append(f"売上高成長率が {max(5.0, growth - 8.0):.1f}% 未満に低下した場合")
+    if op_margin is not None:
+        scenarios.append(f"売上高営業利益率が {max(3.0, op_margin - 4.0):.1f}% 未満に悪化した場合")
+    if de_ratio is not None:
+        scenarios.append(f"有利子負債自己資本比率が {de_ratio + 20.0:.1f}% を超えて悪化した場合")
+    if not scenarios:
+        scenarios.append("次回決算で主要KPI（成長率・利益率）が前期比で悪化した場合")
+    return scenarios[:3]
+
+
+def _build_specific_reevaluation_triggers(candidate: Candidate) -> list[str]:
+    metrics = candidate.quantitative_metrics
+    triggers: list[str] = []
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    profit_growth = _metric(metrics, "op_income_growth_forecast") or _metric(metrics, "op_income_cagr_3y")
+    op_margin = _metric(metrics, "operating_margin")
+
+    if growth is not None:
+        triggers.append(f"次回開示で売上高成長率が {growth + 5.0:.1f}% 以上へ上方修正された時")
+    if profit_growth is not None:
+        triggers.append(f"経常利益成長率が {profit_growth + 8.0:.1f}% 以上へ上方修正された時")
+    if op_margin is not None:
+        triggers.append(f"売上高営業利益率が {op_margin + 2.0:.1f}% 以上へ改善した時")
+    if not triggers:
+        triggers.append("次回決算で成長率と利益率の双方が改善した時")
+    return triggers[:3]
+
+
+def _build_specific_lag_cause_fallback(candidate: Candidate, news_items: list[NewsItem]) -> list[str]:
+    causes = _infer_lag_causes(candidate, news_items)
+    if causes:
+        return causes
+    metrics = candidate.quantitative_metrics
+    per = _metric(metrics, "per")
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    if per is not None and growth is not None:
+        return [f"PER {per:.1f}倍に対して売上成長率 {growth:.1f}% で、評価の上振れ余地が限定的"]
+    return ["直近開示で評価を押し上げる定量材料が不足"]
+
+
+def _build_specific_critical_view_fallback(
+    candidate: Candidate,
+    news_items: list[NewsItem],
+    decision: str,
+) -> list[str]:
+    views = _infer_critical_views(candidate, news_items, decision)
+    if views:
+        return views
+    metrics = candidate.quantitative_metrics
+    growth = _metric(metrics, "revenue_growth_forecast") or _metric(metrics, "revenue_cagr_3y")
+    op_margin = _metric(metrics, "operating_margin")
+    if growth is not None and op_margin is not None:
+        return [f"売上成長率 {growth:.1f}% と営業利益率 {op_margin:.1f}% が同時に鈍化すると判断前提が崩れる"]
+    return ["根拠データ不足のため、投資判断の確度が下がる"]
+
+
+def _normalize_business_overview(raw: object, candidate: Candidate, news_items: list[NewsItem]) -> str:
+    text = str(raw).strip() if raw is not None else ""
+    if not text or _is_too_generic_statement(text):
+        return _fallback_business_overview(candidate, news_items)
+    compact = re.sub(r"\s+", " ", text)
+    return compact[:60]
+
+
+def _fallback_business_overview(candidate: Candidate, news_items: list[NewsItem]) -> str:
+    for item in news_items:
+        title = item.title.replace(candidate.company_name, "").strip(" -|:：")
+        if title:
+            return f"{title[:40]}に関連する事業"
+    return "主力事業は直近開示の要確認"
