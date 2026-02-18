@@ -1,0 +1,4 @@
+interface:
+  display_name: "TSE Growth Flow"
+  short_description: "Growth stock analysis workflow from SBI screening CSV"
+  default_prompt: "成長株候補をリストして"

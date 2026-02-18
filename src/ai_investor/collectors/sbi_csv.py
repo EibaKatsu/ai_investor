@@ -62,14 +62,37 @@ class SbiCsvMarketDataCollector:
 
                 metrics: dict[str, float] = {}
                 self._put_metric(metrics, "latest_close", row.get("現在値"))
-                self._put_metric(metrics, "per", row.get("PER(株価収益率)(倍)"))
-                self._put_metric(metrics, "pbr", row.get("PBR(株価純資産倍率)(倍)"))
-                self._put_metric(metrics, "dividend_yield", row.get("配当利回り(%)"))
-                self._put_metric(metrics, "roe", row.get("ROE(自己資本利益率)(%)"))
-                self._put_metric(metrics, "equity_ratio", row.get("自己資本比率(%)"))
-                self._put_metric(metrics, "net_de_ratio", row.get("有利子負債自己資本比率(%)"))
-                self._put_metric(metrics, "revenue_cagr_3y", row.get("売上高変化率(%)"))
-                self._put_metric(metrics, "op_income_cagr_3y", row.get("経常利益変化率(%)"))
+                self._put_metric_from_columns(metrics, "per", row, ["PER(株価収益率)(予)(倍)", "PER(株価収益率)(倍)"])
+                self._put_metric_from_columns(metrics, "pbr", row, ["PBR(株価純資産倍率)(倍)"])
+                self._put_metric_from_columns(metrics, "dividend_yield", row, ["配当利回り(%)"])
+                self._put_metric_from_columns(metrics, "roe", row, ["ROE(自己資本利益率)(%)", "ROE(%)"])
+                self._put_metric_from_columns(metrics, "equity_ratio", row, ["自己資本比率(%)"])
+                self._put_metric_from_columns(metrics, "net_de_ratio", row, ["有利子負債自己資本比率(%)"])
+                self._put_metric_from_columns(metrics, "operating_margin", row, ["売上高営業利益率(%)"])
+                self._put_metric_from_columns(
+                    metrics,
+                    "revenue_growth_forecast",
+                    row,
+                    ["売上高成長率(予)(%)", "売上高変化率(%)"],
+                )
+                self._put_metric_from_columns(
+                    metrics,
+                    "op_income_growth_forecast",
+                    row,
+                    ["経常利益成長率(予)(%)", "経常利益変化率(%)"],
+                )
+                self._put_metric_from_columns(
+                    metrics,
+                    "revenue_cagr_3y",
+                    row,
+                    ["過去3年平均売上高成長率(予)(%)", "売上高変化率(%)"],
+                )
+                self._put_metric_from_columns(
+                    metrics,
+                    "op_income_cagr_3y",
+                    row,
+                    ["過去3年平均経常利益成長率(予)(%)", "経常利益変化率(%)"],
+                )
 
                 market_cap_million = _to_float(row.get("時価総額(百万円)"))
                 if market_cap_million is not None:
@@ -126,6 +149,22 @@ class SbiCsvMarketDataCollector:
         value = _to_float(raw_value)
         if value is not None:
             metrics[key] = value
+
+    @classmethod
+    def _put_metric_from_columns(
+        cls,
+        metrics: dict[str, float],
+        key: str,
+        row: dict[str, Any],
+        column_names: list[str],
+    ) -> None:
+        for column_name in column_names:
+            raw_value = row.get(column_name)
+            value = _to_float(raw_value)
+            if value is None:
+                continue
+            metrics[key] = value
+            return
 
 
 def _to_float(value: Any) -> float | None:

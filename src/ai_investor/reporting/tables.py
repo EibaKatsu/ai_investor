@@ -7,11 +7,12 @@ RAW_METRIC_COLUMNS: list[tuple[str, str]] = [
     ("per", "PER"),
     ("dividend_yield", "配当利回り(%)"),
     ("roe", "ROE(%)"),
-    ("operating_cf_margin", "営業CFマージン(%)"),
+    ("operating_margin", "売上高営業利益率(%)"),
     ("equity_ratio", "自己資本比率(%)"),
     ("net_de_ratio", "ネットD/E(%)"),
-    ("revenue_cagr_3y", "売上高変化率(%)"),
-    ("op_income_cagr_3y", "経常利益変化率(%)"),
+    ("revenue_growth_forecast", "売上高成長率(予)(%)"),
+    ("op_income_growth_forecast", "経常利益成長率(予)(%)"),
+    ("revenue_cagr_3y", "過去3年平均売上高成長率(予)(%)"),
 ]
 
 
@@ -20,8 +21,8 @@ def to_markdown_table(candidates: list[Candidate]) -> str:
     axis_header = "".join(f"|{_axis_label(axis_id)}" for axis_id in axis_ids)
     raw_header = "".join(f"|{title}" for _, title in RAW_METRIC_COLUMNS)
     header = (
-        f"|Ticker|Company|Sector|Quant|Q(Price)|Q(Fund)|Qual|Composite|Excluded|Reasons{axis_header}{raw_header}|\n"
-        f"|---|---|---|---:|---:|---:|---:|---:|---|---{''.join('|---:' for _ in axis_ids)}{''.join('|---:' for _ in RAW_METRIC_COLUMNS)}|"
+        f"|Ticker|Company|Sector|Quant|Q(Price)|Q(Fund)|Qual(100)|QualRaw|Composite|Excluded|Reasons{axis_header}{raw_header}|\n"
+        f"|---|---|---|---:|---:|---:|---:|---:|---:|---|---{''.join('|---:' for _ in axis_ids)}{''.join('|---:' for _ in RAW_METRIC_COLUMNS)}|"
     )
     rows = []
     for candidate in candidates:
@@ -34,14 +35,15 @@ def to_markdown_table(candidates: list[Candidate]) -> str:
             for metric_id, _ in RAW_METRIC_COLUMNS
         )
         rows.append(
-            "|{ticker}|{name}|{sector}|{quant:.2f}|{q_price:.2f}|{q_fund:.2f}|{qual:.2f}|{comp:.2f}|{excluded}|{reasons}{axis_values}{raw_values}|".format(
+            "|{ticker}|{name}|{sector}|{quant:.2f}|{q_price:.2f}|{q_fund:.2f}|{qual_100:.2f}|{qual_raw:.2f}|{comp:.2f}|{excluded}|{reasons}{axis_values}{raw_values}|".format(
                 ticker=candidate.ticker,
                 name=candidate.company_name,
                 sector=candidate.sector,
                 quant=candidate.quantitative_score,
                 q_price=candidate.quantitative_score_price_now,
                 q_fund=candidate.quantitative_score_fundamentals_base,
-                qual=candidate.qualitative_score_total,
+                qual_100=candidate.qualitative_score_normalized,
+                qual_raw=candidate.qualitative_score_total,
                 comp=candidate.composite_score,
                 excluded="yes" if candidate.excluded else "no",
                 reasons=", ".join(candidate.exclusion_reasons),
@@ -54,6 +56,13 @@ def to_markdown_table(candidates: list[Candidate]) -> str:
 
 def _axis_columns(candidates: list[Candidate]) -> list[str]:
     preferred_order = [
+        "revenue_growth_strength",
+        "tam_expansion_potential",
+        "profit_structure_improvement",
+        "moat_strength",
+        "management_quality",
+        "financial_durability",
+        "valuation_reasonableness",
         "temporary_lag_factor",
         "growth_driver_confidence",
         "management_and_capital_policy",
@@ -70,6 +79,13 @@ def _axis_columns(candidates: list[Candidate]) -> list[str]:
 
 def _axis_label(axis_id: str) -> str:
     labels = {
+        "revenue_growth_strength": "売上成長力",
+        "tam_expansion_potential": "TAM/拡張余地",
+        "profit_structure_improvement": "利益構造改善余地",
+        "moat_strength": "競争優位性(モート)",
+        "management_quality": "経営陣の質",
+        "financial_durability": "財務耐久力",
+        "valuation_reasonableness": "バリュエーション妥当性",
         "temporary_lag_factor": "出遅れ要因の一時性",
         "growth_driver_confidence": "成長ドライバーの実現確度",
         "management_and_capital_policy": "経営品質・資本政策",

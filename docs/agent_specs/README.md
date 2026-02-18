@@ -7,6 +7,7 @@
 - 形式: `<flow-name>-v<version>.md`
 - 例:
   - `tse-prime-laggard-flow-v1.md`
+  - `tse-growth-stock-flow-v1.md`
   - `tse-prime-momentum-flow-v1.md`
   - `tse-prime-defensive-flow-v1.md`
 

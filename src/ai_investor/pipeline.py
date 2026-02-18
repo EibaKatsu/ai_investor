@@ -54,12 +54,15 @@ class InvestorPipeline:
             candidate.quantitative_metrics = quant_metrics.get(candidate.ticker, {})
 
         quantitative.score_candidates(candidates, self.config.quantitative.metrics)
-        qualitative.score_candidates(candidates, self.config.qualitative.axes)
+        qualitative.score_candidates(
+            candidates,
+            self.config.qualitative.axes,
+            scale_max=self.config.qualitative.scale_max,
+        )
         exclusion.apply_exclusion_rules(candidates, self.config.exclusion_rules)
 
         for candidate in candidates:
-            qual_100 = (candidate.qualitative_score_total / 25.0) * 100.0
-            candidate.composite_score = candidate.quantitative_score + qual_100
+            candidate.composite_score = candidate.quantitative_score + candidate.qualitative_score_normalized
 
         ranked = sorted(candidates, key=lambda c: c.composite_score, reverse=True)
         selected_top_n = top_n or self.config.quantitative.top_n_candidates

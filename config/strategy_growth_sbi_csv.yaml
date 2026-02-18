@@ -1,0 +1,101 @@
+version: 1
+name: "growth_stock_strategy_sbi_csv_v1"
+mode: "free_first"
+
+data_sources:
+  prices_and_fundamentals:
+    provider: "sbi_csv"
+    plan: "manual_csv"
+    constraints:
+      csv_dir: "data/raw/sbi_screening"
+      csv_glob: "成長株_*.csv"
+  filings:
+    provider: "edinet_api_v2"
+    plan: "public"
+  timely_disclosure:
+    provider: "tdnet_public_viewer"
+    plan: "public"
+    constraints:
+      listing_window_days: 31
+  news_enrichment:
+    provider: "web_search_rss"
+    plan: "public"
+    constraints:
+      max_items: 20
+
+universe:
+  market: "TSE_ALL"
+  min_avg_trading_value_20d_jpy: 200000000
+  min_market_cap_jpy: 10000000000
+
+quantitative:
+  normalization: "sector_relative"
+  composite_method: "equal_weight"
+  top_n_candidates: 20
+  metrics:
+    - id: "revenue_growth_forecast"
+      better: "higher"
+    - id: "op_income_growth_forecast"
+      better: "higher"
+    - id: "operating_margin"
+      better: "higher"
+    - id: "per"
+      better: "lower"
+    - id: "revenue_cagr_3y"
+      better: "higher"
+    - id: "equity_ratio"
+      better: "higher"
+    - id: "net_de_ratio"
+      better: "lower"
+
+qualitative:
+  scale_min: 0
+  scale_max: 5
+  composite_method: "equal_weight"
+  axes:
+    - id: "revenue_growth_strength"
+      label: "売上成長力"
+      weight: 2
+    - id: "tam_expansion_potential"
+      label: "市場規模（TAM）と拡張余地"
+      weight: 1
+    - id: "profit_structure_improvement"
+      label: "利益構造の改善余地"
+      weight: 1
+    - id: "moat_strength"
+      label: "競争優位性（モート）"
+      weight: 1
+    - id: "management_quality"
+      label: "経営陣の質"
+      weight: 1
+    - id: "financial_durability"
+      label: "財務の耐久力"
+      weight: 1
+    - id: "valuation_reasonableness"
+      label: "バリュエーション妥当性"
+      weight: 1
+
+exclusion_rules:
+  - id: "going_concern_issue"
+    enabled: true
+  - id: "major_fraud_or_compliance_issue"
+    enabled: true
+  - id: "negative_net_worth"
+    enabled: true
+  - id: "long_term_negative_operating_cf"
+    enabled: true
+  - id: "liquidity_below_threshold"
+    enabled: true
+  - id: "large_guidance_cut_with_weak_rationale"
+    enabled: true
+
+deep_dive:
+  top_k: 3
+  news_lookback_days: 30
+  require_refutation_check: true
+
+output:
+  format: ["markdown", "csv"]
+  include_source_links: true
+  include_data_dates: true
+  include_audit_log: true

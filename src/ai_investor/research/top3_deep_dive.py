@@ -21,6 +21,9 @@ class _AIEvaluation:
     reasons: list[str]
     risks: list[str]
     assumptions: list[str]
+    industry_trends: list[str]
+    peer_strengths: list[str]
+    peer_weaknesses: list[str]
     lag_causes: list[str]
     critical_views: list[str]
     break_scenarios: list[str]
@@ -51,7 +54,7 @@ def build_recommendations(
             lookback_days=news_lookback_days,
             as_of=as_of,
         )
-        evaluation = _evaluate_candidate(candidate, news_items, as_of)
+        evaluation = _evaluate_candidate(candidate, news_items, as_of, peer_candidates=ranked)
         links = _build_source_links(news_items)
 
         recommendations.append(
@@ -61,6 +64,9 @@ def build_recommendations(
                 reasons=evaluation.reasons,
                 risks=evaluation.risks,
                 assumptions=evaluation.assumptions,
+                industry_trends=evaluation.industry_trends,
+                peer_strengths=evaluation.peer_strengths,
+                peer_weaknesses=evaluation.peer_weaknesses,
                 lag_causes=evaluation.lag_causes,
                 critical_views=evaluation.critical_views,
                 break_scenarios=evaluation.break_scenarios,
@@ -88,14 +94,25 @@ def _collect_news(
     return _dedupe_by_url(items)
 
 
-def _evaluate_candidate(candidate: Candidate, news_items: list[NewsItem], as_of: date | None) -> _AIEvaluation:
-    ai_eval = _evaluate_with_llm(candidate, news_items, as_of)
+def _evaluate_candidate(
+    candidate: Candidate,
+    news_items: list[NewsItem],
+    as_of: date | None,
+    *,
+    peer_candidates: list[Candidate],
+) -> _AIEvaluation:
+    ai_eval = _evaluate_with_llm(candidate, news_items, as_of, peer_candidates=peer_candidates)
     if ai_eval is not None:
         return ai_eval
-    return _fallback_evaluation(candidate, news_items)
+    return _fallback_evaluation(candidate, news_items, peer_candidates=peer_candidates)
 
-
-def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: date | None) -> _AIEvaluation | None:
+def _evaluate_with_llm(
+    candidate: Candidate,
+    news_items: list[NewsItem],
+    as_of: date | None,
+    *,
+    peer_candidates: list[Candidate],
+) -> _AIEvaluation | None:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         return None
@@ -122,7 +139,10 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         "quantitative_score_price_now": round(candidate.quantitative_score_price_now, 2),
         "quantitative_score_fundamentals_base": round(candidate.quantitative_score_fundamentals_base, 2),
         "qualitative_score_total": round(candidate.qualitative_score_total, 2),
+        "qualitative_score_max": round(candidate.qualitative_score_max, 2),
+        "qualitative_score_100": round(candidate.qualitative_score_normalized, 2),
         "quantitative_metrics": candidate.quantitative_metrics,
+        "peer_snapshot": _build_peer_snapshot(candidate, peer_candidates),
         "news": news_for_prompt,
     }
 
@@ -131,6 +151,7 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         "投資判断を0-100点へポイント換算してください。"
         "キーワード機械判定ではなく、文脈・整合性・リスクの強弱で評価します。"
         "さらに、出遅れ原因を具体的に特定し、投資判断に対する批判的意見も提示してください。"
+        "あわせて、業種の景気動向・傾向と、同業比較での強み・弱みを明示してください。"
         "以下5軸を0-5で採点し、平均×20をtotal_scoreにしてください。"
         "1) valuation_attractiveness 2) financial_quality 3) catalyst_strength "
         "4) downside_risk_control 5) evidence_quality。"
@@ -149,6 +170,9 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         '"reasons":["...最大3件"],'
         '"risks":["...最大3件"],'
         '"assumptions":["...最大3件"],'
+        '"industry_trends":["...業種の景気動向・傾向を最大3件"],'
+        '"peer_strengths":["...同業比較での強みを最大3件"],'
+        '"peer_weaknesses":["...同業比較での弱みを最大3件"],'
         '"lag_causes":["...具体的な出遅れ原因を最大3件"],'
         '"critical_views":["...投資判断への批判的意見を最大3件"],'
         '"break_scenarios":["...最大3件"],'
@@ -211,6 +235,9 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
     reasons = _clip_text_list(model_result.get("reasons"), 3)
     risks = _clip_text_list(model_result.get("risks"), 3)
     assumptions = _clip_text_list(model_result.get("assumptions"), 3)
+    industry_trends = _clip_text_list(model_result.get("industry_trends"), 3)
+    peer_strengths = _clip_text_list(model_result.get("peer_strengths"), 3)
+    peer_weaknesses = _clip_text_list(model_result.get("peer_weaknesses"), 3)
     lag_causes = _clip_text_list(model_result.get("lag_causes"), 3)
     critical_views = _clip_text_list(model_result.get("critical_views"), 3)
     break_scenarios = _clip_text_list(model_result.get("break_scenarios"), 3)
@@ -230,6 +257,14 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         risks = ["短期材料の変化により判断が変わる可能性"]
     if not assumptions:
         assumptions = ["次回決算・開示で前提条件を更新すること"]
+    if not industry_trends:
+        industry_trends = _infer_industry_trends(candidate, news_items)
+    if not peer_strengths or not peer_weaknesses:
+        fallback_strengths, fallback_weaknesses = _infer_peer_strengths_weaknesses(candidate, peer_candidates)
+        if not peer_strengths:
+            peer_strengths = fallback_strengths
+        if not peer_weaknesses:
+            peer_weaknesses = fallback_weaknesses
     if not lag_causes:
         lag_causes = _infer_lag_causes(candidate, news_items)
     if not critical_views:
@@ -245,15 +280,22 @@ def _evaluate_with_llm(candidate: Candidate, news_items: list[NewsItem], as_of: 
         reasons=reasons[:3],
         risks=risks[:3],
         assumptions=assumptions[:3],
+        industry_trends=industry_trends[:3],
+        peer_strengths=peer_strengths[:3],
+        peer_weaknesses=peer_weaknesses[:3],
         lag_causes=lag_causes[:3],
         critical_views=critical_views[:3],
         break_scenarios=break_scenarios[:3],
         reevaluation_triggers=reevaluation_triggers[:3],
     )
 
-
-def _fallback_evaluation(candidate: Candidate, news_items: list[NewsItem]) -> _AIEvaluation:
-    qual_100 = (candidate.qualitative_score_total / 25.0) * 100.0
+def _fallback_evaluation(
+    candidate: Candidate,
+    news_items: list[NewsItem],
+    *,
+    peer_candidates: list[Candidate],
+) -> _AIEvaluation:
+    qual_100 = candidate.qualitative_score_normalized
     total_score = (candidate.quantitative_score * 0.8) + (qual_100 * 0.2)
     decision = _decision_from_score(total_score)
     reasons = [
@@ -267,6 +309,8 @@ def _fallback_evaluation(candidate: Candidate, news_items: list[NewsItem]) -> _A
     assumptions = [
         "AI評価APIを有効化して再採点すること",
     ]
+    industry_trends = _infer_industry_trends(candidate, news_items)
+    peer_strengths, peer_weaknesses = _infer_peer_strengths_weaknesses(candidate, peer_candidates)
     lag_causes = _infer_lag_causes(candidate, news_items)
     critical_views = _infer_critical_views(candidate, news_items, decision)
     break_scenarios = [
@@ -282,6 +326,9 @@ def _fallback_evaluation(candidate: Candidate, news_items: list[NewsItem]) -> _A
         reasons=reasons[:3],
         risks=risks[:3],
         assumptions=assumptions[:3],
+        industry_trends=industry_trends[:3],
+        peer_strengths=peer_strengths[:3],
+        peer_weaknesses=peer_weaknesses[:3],
         lag_causes=lag_causes[:3],
         critical_views=critical_views[:3],
         break_scenarios=break_scenarios[:3],
@@ -326,6 +373,129 @@ def _dedupe_by_url(items: list[NewsItem]) -> list[NewsItem]:
         seen_urls.add(item.url)
         deduped.append(item)
     return deduped
+
+
+def _build_peer_snapshot(candidate: Candidate, peer_candidates: list[Candidate]) -> dict[str, object]:
+    strengths, weaknesses = _infer_peer_strengths_weaknesses(candidate, peer_candidates)
+    metric_snapshot = {}
+    for metric_id in (
+        "pbr",
+        "per",
+        "dividend_yield",
+        "roe",
+        "equity_ratio",
+        "net_de_ratio",
+        "revenue_cagr_3y",
+        "op_income_cagr_3y",
+    ):
+        rank_info = _metric_peer_rank(candidate, peer_candidates, metric_id, higher_is_better=(metric_id not in {"pbr", "per", "net_de_ratio"}))
+        if rank_info is None:
+            continue
+        rank, n = rank_info
+        metric_snapshot[metric_id] = {"rank": rank, "peer_count": n}
+    return {
+        "sector": candidate.sector,
+        "strengths": strengths[:3],
+        "weaknesses": weaknesses[:3],
+        "metric_ranks": metric_snapshot,
+    }
+
+
+def _infer_industry_trends(candidate: Candidate, news_items: list[NewsItem]) -> list[str]:
+    sector_name = candidate.sector or "対象業種"
+    if not news_items:
+        return [
+            f"{sector_name}の景気動向を評価するニュース件数が不足している",
+        ]
+
+    positive_kw = ("需要", "回復", "増", "改善", "上方", "拡大", "好調", "追い風")
+    negative_kw = ("減速", "悪化", "下方", "停滞", "逆風", "不透明", "事故", "訴訟", "減益")
+    positive_count = 0
+    negative_count = 0
+    for item in news_items:
+        title = item.title
+        if any(k in title for k in positive_kw):
+            positive_count += 1
+        if any(k in title for k in negative_kw):
+            negative_count += 1
+
+    trends: list[str] = []
+    if positive_count > negative_count:
+        trends.append(f"{sector_name}は足元で回復・拡大寄りのニュースが優勢（+{positive_count}/-{negative_count}）")
+    elif negative_count > positive_count:
+        trends.append(f"{sector_name}は足元で減速・逆風寄りのニュースが優勢（+{positive_count}/-{negative_count}）")
+    else:
+        trends.append(f"{sector_name}は強弱材料が拮抗し、方向感が定まりにくい（+{positive_count}/-{negative_count}）")
+
+    latest = news_items[0].title if news_items else ""
+    if latest:
+        trends.append(f"直近材料: {latest}")
+    if len(news_items) < 3:
+        trends.append("記事母数が少ないため、業種トレンド判定の確度は限定的")
+    return trends[:3]
+
+
+def _infer_peer_strengths_weaknesses(candidate: Candidate, peer_candidates: list[Candidate]) -> tuple[list[str], list[str]]:
+    metric_defs = [
+        ("pbr", "PBR", False),
+        ("per", "PER", False),
+        ("dividend_yield", "配当利回り", True),
+        ("roe", "ROE", True),
+        ("equity_ratio", "自己資本比率", True),
+        ("net_de_ratio", "ネットD/E", False),
+        ("revenue_cagr_3y", "売上高変化率", True),
+        ("op_income_cagr_3y", "経常利益変化率", True),
+    ]
+
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    for metric_id, label, higher_is_better in metric_defs:
+        rank_info = _metric_peer_rank(candidate, peer_candidates, metric_id, higher_is_better=higher_is_better)
+        if rank_info is None:
+            continue
+        rank, n = rank_info
+        bucket = max(1, (n + 2) // 3)
+        if rank <= bucket:
+            strengths.append(f"{label}が同業{n}社中で上位（{rank}位）")
+        if rank > n - bucket:
+            weaknesses.append(f"{label}が同業{n}社中で下位（{rank}位）")
+
+    if not strengths:
+        strengths.append("同業比較で突出した優位性は限定的")
+    if not weaknesses:
+        weaknesses.append("同業比較で顕著な弱点は限定的")
+    return strengths[:3], weaknesses[:3]
+
+
+def _metric_peer_rank(
+    candidate: Candidate,
+    peer_candidates: list[Candidate],
+    metric_id: str,
+    *,
+    higher_is_better: bool,
+) -> tuple[int, int] | None:
+    peers = _peer_group(candidate, peer_candidates)
+    values: list[tuple[str, float]] = []
+    for peer in peers:
+        value = _metric(peer.quantitative_metrics, metric_id)
+        if value is None:
+            continue
+        values.append((peer.ticker, value))
+
+    if len(values) < 3:
+        return None
+    sorted_values = sorted(values, key=lambda x: x[1], reverse=higher_is_better)
+    for idx, (ticker, _) in enumerate(sorted_values, start=1):
+        if ticker == candidate.ticker:
+            return idx, len(sorted_values)
+    return None
+
+
+def _peer_group(candidate: Candidate, peers: list[Candidate]) -> list[Candidate]:
+    same_sector = [peer for peer in peers if peer.sector == candidate.sector]
+    if len(same_sector) >= 3:
+        return same_sector
+    return peers
 
 
 def _infer_lag_causes(candidate: Candidate, news_items: list[NewsItem]) -> list[str]:

@@ -26,7 +26,7 @@ class QuantitativeConfig:
     normalization: str
     composite_method: str
     top_n_candidates: int
-    metrics: list[dict[str, str]] = field(default_factory=list)
+    metrics: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -34,7 +34,7 @@ class QualitativeConfig:
     scale_min: int
     scale_max: int
     composite_method: str
-    axes: list[dict[str, str]] = field(default_factory=list)
+    axes: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)

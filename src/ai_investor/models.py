@@ -22,6 +22,8 @@ class Candidate:
     quantitative_score_fundamentals_base: float = 0.0
     qualitative_scores: dict[str, float] = field(default_factory=dict)
     qualitative_score_total: float = 0.0
+    qualitative_score_max: float = 25.0
+    qualitative_score_normalized: float = 0.0
     composite_score: float = 0.0
     excluded: bool = False
     exclusion_reasons: list[str] = field(default_factory=list)
@@ -35,6 +37,9 @@ class Recommendation:
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
     assumptions: list[str] = field(default_factory=list)
+    industry_trends: list[str] = field(default_factory=list)
+    peer_strengths: list[str] = field(default_factory=list)
+    peer_weaknesses: list[str] = field(default_factory=list)
     lag_causes: list[str] = field(default_factory=list)
     critical_views: list[str] = field(default_factory=list)
     break_scenarios: list[str] = field(default_factory=list)
